@@ -2,10 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import incidentRoutes from './routes/incidentRoutes';
 import path from 'path';
 import fs from 'fs';
 
+// --- IMPORTAR RUTAS ---
+import incidentRoutes from './routes/incidentRoutes';
+import authRoutes from './routes/authRoutes';          
+import assistantRoutes from './routes/assistantRoutes'; 
 // Cargar variables de entorno
 dotenv.config();
 
@@ -18,7 +21,6 @@ app.use(express.json()); // Permite leer JSON en los POST
 app.use(morgan('dev')); // Muestra logs de las peticiones en consola
 
 // --- Configuración de carpeta Uploads ---
-// (Vital para que Multer no falle al subir fotos)
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)){
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -26,15 +28,16 @@ if (!fs.existsSync(uploadsDir)){
 }
 
 // Servir la carpeta de imágenes públicamente
-// Así el frontend puede mostrar las fotos con <img src="...">
 app.use('/uploads', express.static(uploadsDir));
 
-// --- Rutas ---
+// --- CONECTAR RUTAS ---
 app.use('/api/incidents', incidentRoutes);
+app.use('/api/auth', authRoutes);           // <--- ¡AQUÍ CONECTAMOS EL LOGIN/REGISTER!
+app.use('/api/assistant', assistantRoutes); // <--- Aquí conectamos la IA
 
 // Ruta de prueba (Health Check)
 app.get('/', (req, res) => {
-    res.send('API Crowdsourcing Universitario: ONLINE');
+    res.send('API Crowdsourcing Universitario: ONLINE ');
 });
 
 // --- Iniciar Servidor ---
