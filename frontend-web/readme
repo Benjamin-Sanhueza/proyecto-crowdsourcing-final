@@ -1,0 +1,310 @@
+SGIU – Guía rápida (VS Code + Docker + PowerShell)
+==================================================
+
+0) PRERREQUISITOS
+-----------------
+- Windows 10/11 (PowerShell 5+ o PowerShell 7)
+- Docker Desktop (WSL2 habilitado)
+- Node.js 20.x y npm 10.x
+- Git
+- (Opcional) Android Studio + Emulador (para la app móvil)
+- VS Code con extensiones:
+  - ESLint
+  - Prettier
+  - Thunder Client (opcional, para probar APIs)
+
+Puertos usados (por defecto)
+- Backend API ............. 4000
+- Frontend web (Vite) ..... 5173
+- Postgres ................ 5432
+- Nginx (si se usa build de front) ... 8080
+
+
+1) CLONAR E INSTALAR
+--------------------
+git clone <TU_REPO>
+cd SGIU-Proyecto1
+
+# Instalar dependencias
+cd backend && npm ci
+cd ../frontend-web && npm ci
+cd ../mobile-app && npm ci
+cd ..
+
+
+2) VARIABLES DE ENTORNO
+-----------------------
+Crear archivo backend/.env con:
+
+PORT=4000
+DB_USER=sgiu_user
+DB_PASSWORD=sgiu_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=sgiu_db
+JWT_SECRET=TU_SUPER_SECRETO_JSON_WEB_TOKEN
+
+# (Opcional, para el chat con IA)
+OPENAI_API_KEY=TU_API_KEY_DE_OPENAI
+
+
+3) BASE DE DATOS CON DOCKER
+---------------------------
+# Levantar Postgres con datos persistentes
+docker compose up -d
+
+# Ver logs de la base
+docker logs -f sgiu-postgres-db
+
+# Probar conexión SQL
+docker exec -it sgiu-postgres-db psql -U sgiu_user -d sgiu_db -c "\dt"
+
+
+4) LEVANTAR BACKEND Y FRONTEND (modo dev)
+-----------------------------------------
+# Backend (http://localhost:4000)
+cd backend
+npm run dev
+
+# Probar salud de la API
+# Debe responder: 200 "API del SGIU funcionando!"
+curl http://localhost:4000/api/ping
+
+# Frontend web (http://localhost:5173)
+cd ../frontend-web
+npm run dev
+
+
+5) APP MÓVIL (Expo/React Native)
+---------------------------------
+- Emulador Android: usa 10.0.2.2 para llegar a localhost del PC.
+  mobile-app/src/services/api.ts -> baseURL = "http://10.0.2.2:4000/api"
+- Teléfono real en la misma red: usa tu IP local, ej. "http://192.168.1.50:4000/api"
+
+Comandos:
+cd mobile-app
+npx expo start -c          # menú interactivo
+# o
+npx expo run:android       # build nativa para emulador/dispositivo
+
+
+6) CHAT CON IA (web)
+--------------------
+- Asegúrate de tener en backend/.env:
+  OPENAI_API_KEY=TU_API_KEY_DE_OPENAI
+
+- Reinicia el backend:
+  cd backend && npm run dev
+
+- Ruta en la web: http://localhost:5173/assistant
+- Endpoint usado por el front: POST /api/assistant/chat
+
+
+7) THUNDER CLIENT / CURL RÁPIDO
+-------------------------------
+# Registrar admin
+POST http://localhost:4000/api/auth/register
+Body (JSON):
+{
+  "name": "Admin Principal",
+  "email": "admin@demo.com",
+  "password": "123456",
+  "role": "admin"
+}
+
+# Login (devuelve token)
+POST http://localhost:4000/api/auth/login
+{
+  "email": "admin@demo.com",
+  "password": "123456"
+}
+
+# Crear incidencia (multipart/form-data; imagen opcional "images")
+POST http://localhost:4000/api/incidents
+Headers: Authorization: Bearer <TOKEN>
+Form fields:
+- title: "Proyector no enciende"
+- description: "No funciona desde hoy"
+- category: "equipment" | "infrastructure" | "services"
+- location: "Sala B-201"
+- satisfaction: "1".."5" (opcional pero recomendado)
+- images: (archivo opcional)
+
+
+8) SEED: LIMPIAR E INYECTAR DATOS ALEATORIOS (PowerShell)
+----------------------------------------------------------
+Guarda estos scripts y ejecútalos desde la raíz del repo.
+
+--- A) reset_db.ps1  (TRUNCA incidentes y usuarios no-admin) ---
+$ErrorActionPreference = 'Stop'
+
+# Nombre del contenedor de Postgres en docker-compose.yml
+$PG = 'sgiu-postgres-db'
+
+# Seguridad: NO borres admin si ya existe
+$SQL = @"
+BEGIN;
+
+-- Borra incidencias
+TRUNCATE TABLE incidents RESTART IDENTITY CASCADE;
+
+-- Borra usuarios que no sean admin (conserva admin@demo.com si existe)
+DELETE FROM users WHERE email <> 'admin@demo.com';
+
+COMMIT;
+"@
+
+docker exec -i $PG psql -U sgiu_user -d sgiu_db -c "$SQL"
+Write-Host "✔ DB reseteada (incidents vacía, usuarios no-admin borrados)."
+
+--- B) seed_random.ps1  (crea usuarios usuario_n y 200 incidencias en meses aleatorios) ---
+$ErrorActionPreference = 'Stop'
+
+$API = "http://localhost:4000/api"
+$ADMIN_EMAIL = "admin@demo.com"
+$ADMIN_PASS  = "123456"
+
+# 1) Login admin
+$headers = @{ "Content-Type" = "application/json" }
+$loginBody = @{ email = $ADMIN_EMAIL; password = $ADMIN_PASS } | ConvertTo-Json
+$Token = (Invoke-RestMethod -Uri "$API/auth/login" -Method Post -Headers $headers -Body $loginBody).token
+if (-not $Token) { throw "No pude obtener token admin." }
+$auth = @{ Authorization = "Bearer $Token" }
+
+# 2) Crear N usuarios estudiantes: usuario_1 .. usuario_N
+$N = 35
+1..$N | ForEach-Object {
+  $i = $_
+  $body = @{
+    name     = "usuario_$i"
+    email    = "usuario_$i@demo.com"
+    password = "123456"
+    role     = "student"
+  } | ConvertTo-Json
+  try {
+    Invoke-RestMethod -Uri "$API/auth/register" -Method Post -Headers $headers -Body $body | Out-Null
+    Write-Host " + creado usuario_$i"
+  } catch {
+    Write-Host " ~ usuario_$i ya existía (ok)"
+  }
+}
+
+# 3) Funciones de aleatoriedad
+function Get-RandItem($arr) { $arr | Get-Random }
+$cats   = @('equipment','infrastructure','services')
+$locs   = @('Sala A-101','Sala B-201','Sala C-303','Lab 1','Lab 2','Biblioteca','Gimnasio')
+$titles = @('Falla','No funciona','Error','Problema','Intermitente','Solicitud')
+
+# 4) Crear 200 incidencias y luego MOVER fecha a meses aleatorios (hasta -18 meses)
+$PG = 'sgiu-postgres-db'
+$createdIds = @()
+
+for ($k=1; $k -le 200; $k++) {
+  $u = Get-Random -Minimum 1 -Maximum ($N+1)
+  $title = "$(Get-RandItem $titles) $(Get-RandItem $cats)"
+  $desc  = "Incidencia aleatoria #$k para simulación"
+  $cat   = Get-RandItem $cats
+  $loc   = Get-RandItem $locs
+  $sat   = Get-Random -Minimum 1 -Maximum 6     # 1..5
+
+  # Crear (multipart sencillo con curl.exe)
+  $cmd = @(
+    'curl.exe','-s','-X','POST',"$API/incidents",
+    '-H',"Authorization: Bearer $Token",
+    '-F',"title=$title",
+    '-F',"description=$desc",
+    '-F',"category=$cat",
+    '-F',"location=$loc",
+    '-F',"satisfaction=$sat"
+  )
+  $json = & $cmd | Out-String
+  try {
+    $obj = $json | ConvertFrom-Json
+    $createdIds += $obj.id
+  } catch {
+    Write-Host " ! error creando incidente $k -> $json"
+  }
+}
+
+Write-Host "Se crearon $($createdIds.Count) incidencias. Ajustando fechas..."
+
+# 5) Mover created_at a meses atrás (0..17 meses) y día aleatorio 1..28
+foreach ($id in $createdIds) {
+  $monthsBack = Get-Random -Minimum 0 -Maximum 18
+  $day = Get-Random -Minimum 1 -Maximum 29
+  $date = (Get-Date).AddMonths(-$monthsBack)
+  $ts = "{0:yyyy}-{1:MM}-$day 10:00:00" -f $date,$date  # fije 10:00:00 para simplicidad
+
+  $SQL = "UPDATE incidents SET created_at = '$ts' WHERE id = $id;"
+  docker exec -i $PG psql -U sgiu_user -d sgiu_db -c "$SQL" | Out-Null
+}
+Write-Host "✔ Fechas ajustadas. Seed listo."
+
+# EJECUCIÓN
+# 1) Reset (vacía incidentes y borra usuarios non-admin)
+#    powershell -ExecutionPolicy Bypass -File .\reset_db.ps1
+#
+# 2) Seed aleatorio (crea usuario_1..usuario_35 + 200 incidencias distribuidas en meses)
+#    powershell -ExecutionPolicy Bypass -File .\seed_random.ps1
+
+
+9) AYUDA RÁPIDA (CHEATSHEET)
+----------------------------
+# Si el puerto 4000 está tomado:
+netstat -ano | findstr :4000
+taskkill /PID <PID> /F
+
+# Ver logs backend (si lo corres en Docker):
+docker logs -f sgiu-backend
+
+# Ver logs Postgres
+docker logs -f sgiu-postgres-db
+
+# Bajar servicios y borrar volúmenes (reset total)
+docker compose down -v
+
+# Errores “Network Error” en móvil (Android):
+- En emulador usa baseURL = http://10.0.2.2:4000/api
+- En dispositivo real usa IP local del PC (ej. http://192.168.1.50:4000/api)
+- No pongas manualmente "Content-Type" en multipart (deja que RN lo genere)
+
+# Verificar backend vivo
+curl http://localhost:4000/api/ping
+
+# Probar que el front ve la API (desde el propio front, abre consola DevTools)
+fetch('http://localhost:4000/api/ping').then(r=>r.text()).then(console.log);
+
+# Regresión/Correlación en el panel web
+http://localhost:5173/analysis/regression
+http://localhost:5173/analysis/multi-regression
+http://localhost:5173/analytics     (correlación reportes vs satisfacción)
+http://localhost:5173/assistant      (chat con IA)
+
+
+
+# 1) Build imágenes
+docker compose build
+
+# 2) Levantar en segundo plano
+docker compose up -d
+
+# 3) Ver estado
+docker compose ps
+
+# 4) Logs (DB / backend / frontend)
+docker logs -f sgiu-postgres-db
+docker logs -f sgiu-backend
+docker logs -f sgiu-frontend
+
+# 5) Abrir en el navegador
+# API   → http://localhost:4000/api/ping      (debe responder 200 "API del SGIU funcionando!")
+# WEB   → http://localhost:5173
+
+# 6) Apagar
+docker compose down
+
+# 7) Reset TOTAL (incluye volúmenes: borra DB y uploads)
+docker compose down -v
+
+# 8) Rebuild forzado
+docker compose build --no-cache

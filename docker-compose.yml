@@ -1,0 +1,43 @@
+﻿version: "3.8"
+
+services:
+  db:
+    image: postgres:14-alpine
+    container_name: sgiu-postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: sgiu_user
+      POSTGRES_PASSWORD: sgiu_password
+      POSTGRES_DB: sgiu_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # si tienes un init.sql:
+      # - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build: ./backend
+    container_name: sgiu-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env.docker
+    depends_on:
+      - db
+    ports:
+      - "4000:4000"
+    volumes:
+      - uploads:/usr/src/app/uploads
+
+  frontend:
+    build: ./frontend-web
+    container_name: sgiu-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  postgres_data:
+  uploads:

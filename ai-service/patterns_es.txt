@@ -1,0 +1,6 @@
+# Palabras y frases prohibidas
+# Formato: {categoria}expresion_regular
+{insulto}\b(weon|weón|qlo|culiao|culi(a|o)|idiota|imbécil|estúpido)\b
+{amenaza}
+{violencia}\b(arma|puñete|patada|pelea|golpiza)\b
+{spam}\b(https?://|comparte\s+este\s+link|visita\s+mi\s+página)\b
