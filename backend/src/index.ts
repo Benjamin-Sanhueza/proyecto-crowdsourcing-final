@@ -22,7 +22,7 @@ app.use(morgan('dev')); // Muestra logs de las peticiones en consola
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)){
     fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('📁 Carpeta uploads creada automáticamente');
+    console.log('Carpeta uploads creada automáticamente');
 }
 
 // Servir la carpeta de imágenes públicamente
@@ -34,11 +34,11 @@ app.use('/api/incidents', incidentRoutes);
 
 // Ruta de prueba (Health Check)
 app.get('/', (req, res) => {
-    res.send('API Crowdsourcing Universitario: ONLINE 🟢');
+    res.send('API Crowdsourcing Universitario: ONLINE');
 });
 
 // --- Iniciar Servidor ---
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
-    console.log(`📡 URL de IA configurada: ${process.env.AI_SERVICE_URL || 'No definida (usando default)'}`);
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
+    console.log(`URL de IA configurada: ${process.env.AI_SERVICE_URL || 'No definida (usando default)'}`);
 });
