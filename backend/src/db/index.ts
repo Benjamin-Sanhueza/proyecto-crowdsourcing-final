@@ -1,23 +1,16 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import dns from 'dns'; 
 
 dotenv.config();
 
-// --- ZONA DE DEPURACIÓN  ---
-console.log("---------------------------------------------------------");
-console.log("🔍 DIAGNÓSTICO DE BASE DE DATOS INICIADO");
-console.log("1. ¿Existe DATABASE_URL?:", process.env.DATABASE_URL ? "SÍ ✅" : "NO ❌");
-if (process.env.DATABASE_URL) {
-    console.log("2. Inicio de la URL:", process.env.DATABASE_URL.substring(0, 20) + "...");
-} else {
-    console.log("2. Variables sueltas encontradas:", {
-        host: process.env.DB_HOST || 'No definido',
-        user: process.env.DB_USER || 'No definido'
-    });
-}
-console.log("---------------------------------------------------------");
-// ----------------------------------------
 
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+// -------------------------------------------
+
+// Configuración dinámica
 const poolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
@@ -36,11 +29,11 @@ const poolConfig = process.env.DATABASE_URL
 const pool = new Pool(poolConfig);
 
 pool.on('connect', () => {
-  console.log('Base de Datos conectada correctamente');
+  console.log('✅ Base de Datos conectada correctamente');
 });
 
 pool.on('error', (err) => {
-  console.error(' Error CRÍTICO en Base de Datos:', err);
+  console.error('❌ Error CRÍTICO en Base de Datos:', err);
 });
 
 export default {
