@@ -6,6 +6,9 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../services/api';
 
+// --- URL DEL BACKEND PARA LAS IMÁGENES ---
+const BASE_URL = 'https://proyecto-crowdsourcing-final.onrender.com';
+
 interface Incident {
   id: number;
   title: string;
@@ -125,7 +128,7 @@ const IncidentsPage: React.FC = () => {
                   <Chip label={incident.status} color={getStatusChipColor(incident.status)} />
                 </TableCell>
 
-                <TableCell /* acciones */
+                <TableCell
                   onClick={(e) => e.stopPropagation()} 
                 >
                   <Select
@@ -176,14 +179,15 @@ const IncidentsPage: React.FC = () => {
           <Typography sx={{ mt: 1 }}>
             <strong>Ubicación:</strong> {selectedIncident?.location}
           </Typography>
-          <Box sx={{ mt: 2, display: 'flex', gap: '10px' }}>
+          <Box sx={{ mt: 2, display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             {selectedIncident?.images?.map((imgUrl, index) => (
               <img
                 key={index}
-                src={`http://localhost:4000${imgUrl}`}
+                src={`${BASE_URL}${imgUrl}`}
                 alt={`Incidencia ${index + 1}`}
                 width="100"
-                style={{ objectFit: 'cover' }}
+                height="100"
+                style={{ objectFit: 'cover', borderRadius: 4, border: '1px solid #ddd' }}
               />
             ))}
           </Box>
