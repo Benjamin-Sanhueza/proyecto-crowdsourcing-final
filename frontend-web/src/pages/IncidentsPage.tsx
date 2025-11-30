@@ -6,11 +6,11 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../services/api';
 
-// --- URL DEL BACKEND PARA LAS IMÁGENES ---
-// (Asegúrate que esta sea tu URL real de Render, sin barra al final)
+// --- CONFIGURACIÓN ---
+// Asegúrate de que esta URL sea la de tu backend en Render (sin barra al final)
 const BASE_URL = 'https://proyecto-crowdsourcing-final.onrender.com';
 
-// 1. INTERFAZ ACTUALIZADA (Ahora sí sabe recibir datos de IA)
+// 1. INTERFAZ COMPLETA (Con los datos de la IA)
 interface Incident {
   id: number;
   title: string;
@@ -21,7 +21,7 @@ interface Incident {
   user_name: string;
   created_at: string;
   images: string[];
-  // Campos nuevos de IA
+  // Campos de IA
   ai_moderated: boolean;
   ai_is_toxic: boolean;
   ai_toxicity_score: number;
@@ -37,12 +37,13 @@ const getStatusChipColor = (status: Incident['status']) => {
   }
 };
 
-// 2. FUNCIÓN DE ETIQUETAS INTELIGENTE
-// (Soluciona el problema de "Ofensivo 0%")
+// 2. LÓGICA DE ETIQUETAS INTELIGENTE (Aquí está el arreglo visual)
 const renderAIBadge = (incident: Incident) => {
-  // CASO 1: La IA dice que es TÓXICO
+  
+  // CASO A: TÓXICO
   if (incident.ai_is_toxic) {
-    // Si el score es 0 pero es tóxico, fue por REGLAS (Lista negra)
+    // Si el score es 0, significa que cayó por Reglas (Lista Negra)
+    // Si es mayor a 0, fue por Probabilidad (Machine Learning)
     const isByRules = incident.ai_toxicity_score === 0;
     
     return (
@@ -51,7 +52,7 @@ const renderAIBadge = (incident: Incident) => {
         : `Probabilidad IA: ${(incident.ai_toxicity_score * 100).toFixed(1)}%`
       }>
         <Chip 
-          // Aquí cambiamos el texto para que sea claro
+          // Si es por reglas, mostramos "PALABRA PROHIBIDA", si no "OFENSIVO"
           label={isByRules ? "PALABRA PROHIBIDA" : "OFENSIVO"} 
           color="error" 
           size="small" 
@@ -61,7 +62,7 @@ const renderAIBadge = (incident: Incident) => {
     );
   }
   
-  // CASO 2: La IA dice que es DUPLICADO
+  // CASO B: DUPLICADO
   if (incident.is_duplicate) {
     return (
       <Tooltip title="Este reporte es muy similar a uno anterior">
@@ -70,12 +71,12 @@ const renderAIBadge = (incident: Incident) => {
     );
   }
 
-  // CASO 3: LIMPIO (Pasó la revisión y no es nada malo)
+  // CASO C: LIMPIO (Pasó la revisión)
   if (incident.ai_moderated) {
     return <Chip label="LIMPIO" color="success" size="small" variant="outlined" />;
   }
 
-  // CASO 4: PENDIENTE (Aún no pasa por la IA)
+  // CASO D: PENDIENTE (Aún no procesado)
   return <Chip label="PENDIENTE" size="small" />;
 };
 
@@ -175,7 +176,7 @@ const IncidentsPage: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Título</TableCell>
-              {/* 3. COLUMNA NUEVA */}
+              {/* Columna nueva para el análisis */}
               <TableCell align="center">Análisis IA</TableCell> 
               <TableCell>Reportado por</TableCell>
               <TableCell>Ubicación</TableCell>
@@ -195,7 +196,7 @@ const IncidentsPage: React.FC = () => {
               >
                 <TableCell>{incident.title}</TableCell>
                 
-                {/* 4. CELDAS NUEVAS CON LA ETIQUETA */}
+                {/* Renderizamos la etiqueta inteligente */}
                 <TableCell align="center">
                     {renderAIBadge(incident)}
                 </TableCell>
@@ -241,7 +242,7 @@ const IncidentsPage: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* MODAL DETALLES */}
+      {/* MODAL DE DETALLES */}
       <Modal
         open={selectedIncident !== null}
         onClose={handleCloseModal}
@@ -252,7 +253,7 @@ const IncidentsPage: React.FC = () => {
             {selectedIncident?.title}
           </Typography>
           
-          {/* MUESTRA LA ETIQUETA TAMBIÉN EN EL MODAL */}
+          {/* Mostramos también el análisis dentro del modal */}
           <Box sx={{ mt: 1, mb: 2 }}>
             {selectedIncident && renderAIBadge(selectedIncident)}
           </Box>
@@ -288,7 +289,7 @@ const IncidentsPage: React.FC = () => {
         </Box>
       </Modal>
 
-      {/* MODAL LIGHTBOX */}
+      {/* MODAL DE IMAGEN GRANDE (LIGHTBOX) */}
       <Modal
         open={selectedImageInLightbox !== null}
         onClose={handleCloseLightbox}
