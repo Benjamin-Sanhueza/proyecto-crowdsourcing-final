@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile-app",
-    "slug": "mobile-app",
+    "name": "CrowdSource App",
+    "slug": "crowdsource-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,10 +25,15 @@
       "permissions": [
         "android.permission.DETECT_SCREEN_CAPTURE"
       ],
-      "package": "com.anonymous.mobileapp"
+      "package": "com.app.crowdsourcing"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "22b88895-a9d2-437e-b1ac-5382b716b777"
+      }
     }
   }
 }

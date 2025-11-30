@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Image } from 'react-native';
+import { StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import { TextInput, Button, ActivityIndicator, Card, SegmentedButtons, Text } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
-import api from '../services/api'; 
+import api from '../services/api'; // Importamos el api corregido del paso 1
 
 const CreateIncidentScreen = ({ navigation }: any) => {
   const [title, setTitle] = useState('');
@@ -16,7 +15,7 @@ const CreateIncidentScreen = ({ navigation }: any) => {
 
   const pickImage = async () => {
     if (images.length >= 3) {
-      Alert.alert('Límite alcanzado', 'Solo puedes seleccionar hasta 3 imágenes.');
+      Alert.alert('Límite alcanzado', 'Solo 3 imágenes máximo.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -28,89 +27,53 @@ const CreateIncidentScreen = ({ navigation }: any) => {
   };
 
   const handleSubmit = async () => {
-    if (!title || !description || !location || !category) {
-      Alert.alert('Campos requeridos', 'Por favor, completa todos los campos.');
+    if (!title || !description || !location) {
+      Alert.alert('Faltan datos', 'Completa título, descripción y ubicación.');
       return;
     }
 
     try {
       setLoading(true);
 
-      try {
-        const ping = await fetch('http://10.0.2.2:4000/');
-        const txt = await ping.text();
-        console.log('RAW PING:', ping.status, txt);
-      } catch (e: any) {
-        console.log('RAW PING FAIL:', e?.message || e);
-        Alert.alert('Sin conexión al backend', e?.message || 'Revisa red/puerto');
-        return;
-      }
-
+      // 1. PREPARAR EL FORM DATA (DATOS + FOTOS)
       const formData = new FormData();
       formData.append('title', title);
       formData.append('description', description);
       formData.append('category', category);
       formData.append('location', location);
       formData.append('satisfaction', satisfaction); 
+      
       images.forEach((image, idx) => {
-        const fileName =
-          (image.fileName && image.fileName.includes('.'))
-            ? image.fileName
-            : `photo_${idx}.jpg`;
+        const fileName = image.fileName || `photo_${idx}.jpg`;
+        const type = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
-        let type: string = 'image/jpeg';
-        const ext = fileName.split('.').pop()?.toLowerCase();
-        if (ext === 'png') type = 'image/png';
-        if (ext === 'jpeg' || ext === 'jpg') type = 'image/jpeg';
-
+        // @ts-ignore
         formData.append('images', {
           uri: image.uri,
           name: fileName,
           type,
-        } as any);
+        });
       });
 
-      const token = await SecureStore.getItemAsync('token');
-      if (!token) {
-        Alert.alert('Sesión', 'No hay token. Inicia sesión nuevamente.');
-        return;
-      }
-
-      const base = (api.defaults.baseURL || '').replace(/\/$/, '');
-      const url = `${base}/incidents`;
-
-      const res = await fetch(url, {
-        method: 'POST',
+      // 2. ENVIAR A RENDER (Sin hacer ping local)
+      console.log('Enviando a:', api.defaults.baseURL);
+      
+      await api.post('/incidents', formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
+          'Content-Type': 'multipart/form-data', // Importante para las fotos
         },
-        body: formData as any,
       });
 
-      const text = await res.text();
-      console.log('CREATE STATUS:', res.status, 'BODY:', text);
+      Alert.alert('¡Éxito!', 'Reporte enviado correctamente.');
+      navigation.navigate('MyIncidents'); // O volver atrás
+      
+      // Limpiar campos
+      setTitle(''); setDescription(''); setLocation(''); setImages([]);
 
-      if (!res.ok) {
-        try {
-          const j = JSON.parse(text);
-          throw new Error(j?.message || `HTTP ${res.status}`);
-        } catch {
-          throw new Error(text || `HTTP ${res.status}`);
-        }
-      }
-
-      Alert.alert('Éxito', 'Incidencia reportada correctamente.');
-      navigation.navigate('MyIncidents');
-      setTitle('');
-      setDescription('');
-      setLocation('');
-      setImages([]);
-      setSatisfaction('3');
-      setCategory('equipment');
     } catch (err: any) {
-      console.log('Create incident failed - message:', err?.message || err);
-      Alert.alert('Error', err?.message || 'No se pudo reportar la incidencia.');
+      console.log('Error:', err);
+      const msg = err.response?.data?.message || err.message || 'Error de conexión';
+      Alert.alert('Error', 'No se pudo enviar: ' + msg);
     } finally {
       setLoading(false);
     }
@@ -119,66 +82,30 @@ const CreateIncidentScreen = ({ navigation }: any) => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Card style={{ padding: 10 }}>
-        <Card.Title title="Nuevo Reporte de Incidencia" />
+        <Card.Title title="Nuevo Reporte" />
         <Card.Content>
-          <TextInput
-            label="Título (Ej: Proyector no enciende)"
-            value={title}
-            onChangeText={setTitle}
-            style={styles.input}
-          />
-          <TextInput
-            label="Descripción detallada"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-            style={styles.input}
-          />
-          <TextInput
-            label="Ubicación (Ej: Sala B-201)"
-            value={location}
-            onChangeText={setLocation}
-            style={styles.input}
-          />
+          <TextInput label="Título" value={title} onChangeText={setTitle} style={styles.input} />
+          <TextInput label="Descripción" value={description} onChangeText={setDescription} multiline numberOfLines={3} style={styles.input} />
+          <TextInput label="Ubicación" value={location} onChangeText={setLocation} style={styles.input} />
 
+          <Text style={{marginTop: 10}}>Categoría</Text>
           <SegmentedButtons
             value={category}
             onValueChange={(v: any) => setCategory(v)}
-            style={styles.input}
             buttons={[
               { value: 'equipment', label: 'Equipo' },
               { value: 'infrastructure', label: 'Edificio' },
               { value: 'services', label: 'Servicio' },
             ]}
-          />
-
-          <Text style={{ marginBottom: 8, marginTop: 8 }}>Satisfacción (1–5)</Text>
-          <SegmentedButtons
-            value={satisfaction}
-            onValueChange={(v: any) => setSatisfaction(v)}
             style={styles.input}
-            buttons={[
-              { value: '1', label: '1' },
-              { value: '2', label: '2' },
-              { value: '3', label: '3' },
-              { value: '4', label: '4' },
-              { value: '5', label: '5' },
-            ]}
           />
 
           <Button icon="camera" mode="outlined" onPress={pickImage} style={styles.button}>
-            Añadir Imagen ({images.length}/3)
+            Foto ({images.length}/3)
           </Button>
 
-          <ScrollView horizontal style={styles.imagePreviewContainer}>
-            {images.map((img, index) => (
-              <Image key={index} source={{ uri: img.uri }} style={styles.imagePreview} />
-            ))}
-          </ScrollView>
-
           <Button mode="contained" onPress={handleSubmit} disabled={loading} style={styles.button}>
-            {loading ? <ActivityIndicator animating={true} color="white" /> : 'Enviar Reporte'}
+            {loading ? <ActivityIndicator color="white" /> : 'ENVIAR REPORTE'}
           </Button>
         </Card.Content>
       </Card>
@@ -187,11 +114,9 @@ const CreateIncidentScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 16, backgroundColor: '#f5f5f5' },
-  input: { marginBottom: 16 },
-  button: { marginVertical: 8, padding: 4 },
-  imagePreviewContainer: { flexDirection: 'row', marginBottom: 16, height: 110 },
-  imagePreview: { width: 100, height: 100, marginRight: 8, borderRadius: 4, borderWidth: 1, borderColor: '#ccc' },
+  container: { padding: 16 },
+  input: { marginBottom: 12 },
+  button: { marginVertical: 8 },
 });
 
 export default CreateIncidentScreen;
