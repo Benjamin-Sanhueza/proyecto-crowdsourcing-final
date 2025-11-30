@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Typography, Paper, CircularProgress, Alert, TableContainer, Table, TableHead,
-  TableRow, TableCell, TableBody, Chip, Modal, Box, Select, MenuItem, IconButton
+  TableRow, TableCell, TableBody, Chip, Modal, Box, Select, MenuItem, IconButton, Tooltip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../services/api';
@@ -9,6 +9,7 @@ import api from '../services/api';
 // --- URL DEL BACKEND PARA LAS IMÁGENES ---
 const BASE_URL = 'https://proyecto-crowdsourcing-final.onrender.com';
 
+// 1. ACTUALIZAMOS LA INTERFAZ PARA INCLUIR DATOS DE LA IA
 interface Incident {
   id: number;
   title: string;
@@ -19,6 +20,11 @@ interface Incident {
   user_name: string;
   created_at: string;
   images: string[];
+  // Campos nuevos de IA
+  ai_moderated: boolean;
+  ai_is_toxic: boolean;
+  ai_toxicity_score: number;
+  is_duplicate: boolean;
 }
 
 const getStatusChipColor = (status: Incident['status']) => {
@@ -30,7 +36,36 @@ const getStatusChipColor = (status: Incident['status']) => {
   }
 };
 
-// Estilo del modal de detalles (el formulario)
+// 2. FUNCIÓN PARA GENERAR LA ETIQUETA DE LA IA
+const renderAIBadge = (incident: Incident) => {
+  // Si la IA dijo que es TÓXICO
+  if (incident.ai_is_toxic) {
+    return (
+      <Tooltip title={`Nivel de toxicidad: ${(incident.ai_toxicity_score * 100).toFixed(1)}%`}>
+        <Chip label="OFENSIVO" color="error" size="small" sx={{ fontWeight: 'bold' }} />
+      </Tooltip>
+    );
+  }
+  
+  // Si la IA dijo que es DUPLICADO
+  if (incident.is_duplicate) {
+    return (
+      <Tooltip title="Este reporte es muy similar a uno anterior">
+        <Chip label="DUPLICADO" color="warning" size="small" sx={{ fontWeight: 'bold' }} />
+      </Tooltip>
+    );
+  }
+
+  // Si pasó por la IA y está limpio
+  if (incident.ai_moderated) {
+    return <Chip label="LIMPIO" color="success" size="small" variant="outlined" />;
+  }
+
+  // Si aún no ha pasado por la IA (raro, pero posible)
+  return <Chip label="PENDIENTE" size="small" />;
+};
+
+// Estilos de Modals
 const modalStyle = {
   position: 'absolute' as const,
   top: '50%',
@@ -41,17 +76,16 @@ const modalStyle = {
   border: '2px solid #000',
   boxShadow: 24,
   p: 4,
-  maxHeight: '90vh', // Para que no se salga si hay muchas fotos
-  overflowY: 'auto'  // Scroll si es necesario
+  maxHeight: '90vh',
+  overflowY: 'auto'
 };
 
-// Estilo NUEVO para el modal de la imagen grande (Lightbox)
 const lightboxStyle = {
   position: 'absolute' as const,
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
-  bgcolor: 'transparent', // Fondo transparente, solo se ve la imagen
+  bgcolor: 'transparent',
   boxShadow: 'none',
   p: 0,
   outline: 'none',
@@ -69,10 +103,7 @@ const IncidentsPage: React.FC = () => {
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState<number | null>(null);
   
-  // Estado para el modal de detalles de texto
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  
-  // Estado NUEVO: guarda la URL de la imagen grande que se está viendo
   const [selectedImageInLightbox, setSelectedImageInLightbox] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,11 +122,8 @@ const IncidentsPage: React.FC = () => {
 
   const handleOpenModal = (incident: Incident) => setSelectedIncident(incident);
   const handleCloseModal = () => setSelectedIncident(null);
-
-  // ✨ Handlers para abrir y cerrar el Lightbox de imagen
   const handleOpenLightbox = (imageUrl: string) => setSelectedImageInLightbox(imageUrl);
   const handleCloseLightbox = () => setSelectedImageInLightbox(null);
-
 
   const handleStatusChange = async (id: number, status: Incident['status']) => {
     setSavingId(id);
@@ -134,6 +162,8 @@ const IncidentsPage: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Título</TableCell>
+              {/* 3. NUEVA COLUMNA EN EL ENCABEZADO */}
+              <TableCell align="center">Análisis IA</TableCell> 
               <TableCell>Reportado por</TableCell>
               <TableCell>Ubicación</TableCell>
               <TableCell>Fecha</TableCell>
@@ -151,6 +181,12 @@ const IncidentsPage: React.FC = () => {
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell>{incident.title}</TableCell>
+                
+                {/* 4. MOSTRAMOS EL BADGE DE LA IA */}
+                <TableCell align="center">
+                    {renderAIBadge(incident)}
+                </TableCell>
+
                 <TableCell>{incident.user_name}</TableCell>
                 <TableCell>{incident.location}</TableCell>
                 <TableCell>{new Date(incident.created_at).toLocaleDateString()}</TableCell>
@@ -159,9 +195,7 @@ const IncidentsPage: React.FC = () => {
                   <Chip label={incident.status} color={getStatusChipColor(incident.status)} />
                 </TableCell>
 
-                <TableCell
-                  onClick={(e) => e.stopPropagation()} 
-                >
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <Select
                     size="small"
                     value={incident.status}
@@ -194,7 +228,7 @@ const IncidentsPage: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* MODAL 1: DETALLES DE LA INCIDENCIA (Texto y miniaturas) */}
+      {/* MODAL DETALLES */}
       <Modal
         open={selectedIncident !== null}
         onClose={handleCloseModal}
@@ -204,6 +238,12 @@ const IncidentsPage: React.FC = () => {
           <Typography id="incident-detail-title" variant="h6" component="h2">
             {selectedIncident?.title}
           </Typography>
+          
+          {/* MUESTRA TAMBIÉN EL ANÁLISIS EN EL MODAL */}
+          <Box sx={{ mt: 1, mb: 2 }}>
+            {selectedIncident && renderAIBadge(selectedIncident)}
+          </Box>
+
           <Typography sx={{ mt: 2 }}>
             <strong>Descripción:</strong> {selectedIncident?.description}
           </Typography>
@@ -222,13 +262,12 @@ const IncidentsPage: React.FC = () => {
                 alt={`Incidencia ${index + 1}`}
                 width="100"
                 height="100"
-
                 onClick={() => handleOpenLightbox(fullImageUrl)}
                 style={{ 
                   objectFit: 'cover', 
                   borderRadius: 4, 
                   border: '1px solid #ddd',
-                  cursor: 'pointer' // ✨ Cambia el cursor para indicar que es clicable
+                  cursor: 'pointer' 
                 }}
               />
             )})}
@@ -236,26 +275,24 @@ const IncidentsPage: React.FC = () => {
         </Box>
       </Modal>
 
-      {/*MODAL 2: LIGHTBOX (SOLO IMAGEN GRANDE) */}
+      {/* MODAL LIGHTBOX */}
       <Modal
         open={selectedImageInLightbox !== null}
         onClose={handleCloseLightbox}
         aria-labelledby="lightbox-modal"
       >
-        {/* Al hacer click en cualquier parte del fondo negro, se cierra */}
         <Box sx={lightboxStyle} onClick={handleCloseLightbox}>
           {selectedImageInLightbox && (
             <img
               src={selectedImageInLightbox}
               alt="Detalle grande"
               style={{ 
-                maxWidth: '95vw',  // Ocupa máximo el 95% del ancho de la pantalla
-                maxHeight: '95vh', // Ocupa máximo el 95% del alto
-                objectFit: 'contain', // Asegura que la imagen se vea entera sin recortarse
+                maxWidth: '95vw', 
+                maxHeight: '95vh',
+                objectFit: 'contain', 
                 boxShadow: '0px 4px 20px rgba(0,0,0,0.5)',
                 borderRadius: 4
               }}
-              // Evitamos que el click en la imagen misma cierre el modal
               onClick={(e) => e.stopPropagation()}
             />
           )}
