@@ -1,14 +1,14 @@
 from rapidfuzz import fuzz
 from typing import List, Optional
 
-def find_similar_incident(new_text: str, existing_titles: List[str], threshold: int = 80) -> dict:
+# CAMBIO: Bajamos el umbral de 80 a 70 para detectar más duplicados
+def find_similar_incident(new_text: str, existing_titles: List[str], threshold: int = 70) -> dict:
     """
     Motor de deduplicación usando RapidFuzz.
     """
     max_similarity = 0
     similar_title = None
     
-    # Si la lista está vacía, retornamos resultado negativo
     if not existing_titles:
         return {
             "detected": False, 
@@ -19,7 +19,9 @@ def find_similar_incident(new_text: str, existing_titles: List[str], threshold: 
     text_lower = new_text.lower()
 
     for title in existing_titles:
-        ratio = fuzz.ratio(text_lower, title.lower())
+        # Usamos token_set_ratio que es mejor para palabras desordenadas
+        # Ej: "Fuga de agua" vs "Agua con fuga" lo detecta bien.
+        ratio = fuzz.token_set_ratio(text_lower, title.lower())
         
         if ratio > max_similarity:
             max_similarity = ratio
