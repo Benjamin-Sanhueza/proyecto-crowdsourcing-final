@@ -4,7 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './components/DashboardLayout';
-import OverviewPage from './pages/OverviewPage';
+// import OverviewPage from './pages/OverviewPage'; // <-- Ya no usamos este (o lo puedes borrar)
+import DashboardHome from './pages/DashboardHome';   // <-- ✨ NUEVO IMPORT
 import IncidentsPage from './pages/IncidentsPage';
 import CorrelationPage from './pages/CorrelationPage';
 import SimpleRegressionPage from './pages/SimpleRegressionPage';
@@ -27,8 +28,11 @@ const AppRoutes: React.FC = () => {
       {/* Protegida (admin) */}
       <Route element={<ProtectedRoute isAdminRoute />}>
         <Route element={<DashboardLayout />}>
-          {/* index === "/" */}
-          <Route index element={<OverviewPage />} />
+          
+          {/* ✨ AQUÍ ESTÁ EL CAMBIO PRINCIPAL */}
+          {/* Cuando entres a la raíz "/", cargarás el nuevo Dashboard bonito */}
+          <Route index element={<DashboardHome />} />
+          
           <Route path="incidents" element={<IncidentsPage />} />
 
           {/* Análisis */}
