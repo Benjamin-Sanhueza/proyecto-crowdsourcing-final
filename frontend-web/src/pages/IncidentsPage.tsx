@@ -7,9 +7,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../services/api';
 
 // --- URL DEL BACKEND PARA LAS IMÁGENES ---
+// (Asegúrate que esta sea tu URL real de Render, sin barra al final)
 const BASE_URL = 'https://proyecto-crowdsourcing-final.onrender.com';
 
-// 1. ACTUALIZAMOS LA INTERFAZ PARA INCLUIR DATOS DE LA IA
+// 1. INTERFAZ ACTUALIZADA (Ahora sí sabe recibir datos de IA)
 interface Incident {
   id: number;
   title: string;
@@ -36,18 +37,31 @@ const getStatusChipColor = (status: Incident['status']) => {
   }
 };
 
-// 2. FUNCIÓN PARA GENERAR LA ETIQUETA DE LA IA
+// 2. FUNCIÓN DE ETIQUETAS INTELIGENTE
+// (Soluciona el problema de "Ofensivo 0%")
 const renderAIBadge = (incident: Incident) => {
-  // Si la IA dijo que es TÓXICO
+  // CASO 1: La IA dice que es TÓXICO
   if (incident.ai_is_toxic) {
+    // Si el score es 0 pero es tóxico, fue por REGLAS (Lista negra)
+    const isByRules = incident.ai_toxicity_score === 0;
+    
     return (
-      <Tooltip title={`Nivel de toxicidad: ${(incident.ai_toxicity_score * 100).toFixed(1)}%`}>
-        <Chip label="OFENSIVO" color="error" size="small" sx={{ fontWeight: 'bold' }} />
+      <Tooltip title={isByRules 
+        ? "Detectado por lista de palabras prohibidas (Reglas Estrictas)" 
+        : `Probabilidad IA: ${(incident.ai_toxicity_score * 100).toFixed(1)}%`
+      }>
+        <Chip 
+          // Aquí cambiamos el texto para que sea claro
+          label={isByRules ? "PALABRA PROHIBIDA" : "OFENSIVO"} 
+          color="error" 
+          size="small" 
+          sx={{ fontWeight: 'bold' }} 
+        />
       </Tooltip>
     );
   }
   
-  // Si la IA dijo que es DUPLICADO
+  // CASO 2: La IA dice que es DUPLICADO
   if (incident.is_duplicate) {
     return (
       <Tooltip title="Este reporte es muy similar a uno anterior">
@@ -56,16 +70,16 @@ const renderAIBadge = (incident: Incident) => {
     );
   }
 
-  // Si pasó por la IA y está limpio
+  // CASO 3: LIMPIO (Pasó la revisión y no es nada malo)
   if (incident.ai_moderated) {
     return <Chip label="LIMPIO" color="success" size="small" variant="outlined" />;
   }
 
-  // Si aún no ha pasado por la IA (raro, pero posible)
+  // CASO 4: PENDIENTE (Aún no pasa por la IA)
   return <Chip label="PENDIENTE" size="small" />;
 };
 
-// Estilos de Modals
+// Estilos
 const modalStyle = {
   position: 'absolute' as const,
   top: '50%',
@@ -95,7 +109,6 @@ const lightboxStyle = {
   width: '100%',
   height: '100%',
 };
-
 
 const IncidentsPage: React.FC = () => {
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -162,7 +175,7 @@ const IncidentsPage: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell>Título</TableCell>
-              {/* 3. NUEVA COLUMNA EN EL ENCABEZADO */}
+              {/* 3. COLUMNA NUEVA */}
               <TableCell align="center">Análisis IA</TableCell> 
               <TableCell>Reportado por</TableCell>
               <TableCell>Ubicación</TableCell>
@@ -182,7 +195,7 @@ const IncidentsPage: React.FC = () => {
               >
                 <TableCell>{incident.title}</TableCell>
                 
-                {/* 4. MOSTRAMOS EL BADGE DE LA IA */}
+                {/* 4. CELDAS NUEVAS CON LA ETIQUETA */}
                 <TableCell align="center">
                     {renderAIBadge(incident)}
                 </TableCell>
@@ -239,7 +252,7 @@ const IncidentsPage: React.FC = () => {
             {selectedIncident?.title}
           </Typography>
           
-          {/* MUESTRA TAMBIÉN EL ANÁLISIS EN EL MODAL */}
+          {/* MUESTRA LA ETIQUETA TAMBIÉN EN EL MODAL */}
           <Box sx={{ mt: 1, mb: 2 }}>
             {selectedIncident && renderAIBadge(selectedIncident)}
           </Box>
