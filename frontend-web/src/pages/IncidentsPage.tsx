@@ -30,6 +30,7 @@ const getStatusChipColor = (status: Incident['status']) => {
   }
 };
 
+// Estilo del modal de detalles (el formulario)
 const modalStyle = {
   position: 'absolute' as const,
   top: '50%',
@@ -40,14 +41,39 @@ const modalStyle = {
   border: '2px solid #000',
   boxShadow: 24,
   p: 4,
+  maxHeight: '90vh', // Para que no se salga si hay muchas fotos
+  overflowY: 'auto'  // Scroll si es necesario
 };
+
+// Estilo NUEVO para el modal de la imagen grande (Lightbox)
+const lightboxStyle = {
+  position: 'absolute' as const,
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  bgcolor: 'transparent', // Fondo transparente, solo se ve la imagen
+  boxShadow: 'none',
+  p: 0,
+  outline: 'none',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  width: '100%',
+  height: '100%',
+};
+
 
 const IncidentsPage: React.FC = () => {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState<number | null>(null);
+  
+  // Estado para el modal de detalles de texto
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  
+  // Estado NUEVO: guarda la URL de la imagen grande que se está viendo
+  const [selectedImageInLightbox, setSelectedImageInLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchIncidents = async () => {
@@ -65,6 +91,11 @@ const IncidentsPage: React.FC = () => {
 
   const handleOpenModal = (incident: Incident) => setSelectedIncident(incident);
   const handleCloseModal = () => setSelectedIncident(null);
+
+  // ✨ Handlers para abrir y cerrar el Lightbox de imagen
+  const handleOpenLightbox = (imageUrl: string) => setSelectedImageInLightbox(imageUrl);
+  const handleCloseLightbox = () => setSelectedImageInLightbox(null);
+
 
   const handleStatusChange = async (id: number, status: Incident['status']) => {
     setSavingId(id);
@@ -163,7 +194,7 @@ const IncidentsPage: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* MODAL PARA VER DETALLES */}
+      {/* MODAL 1: DETALLES DE LA INCIDENCIA (Texto y miniaturas) */}
       <Modal
         open={selectedIncident !== null}
         onClose={handleCloseModal}
@@ -179,20 +210,58 @@ const IncidentsPage: React.FC = () => {
           <Typography sx={{ mt: 1 }}>
             <strong>Ubicación:</strong> {selectedIncident?.location}
           </Typography>
-          <Box sx={{ mt: 2, display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            {selectedIncident?.images?.map((imgUrl, index) => (
+          
+          <Typography sx={{ mt: 2, mb: 1 }}><strong>Evidencia:</strong></Typography>
+          <Box sx={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {selectedIncident?.images?.map((imgUrl, index) => {
+               const fullImageUrl = `${BASE_URL}${imgUrl}`;
+               return (
               <img
                 key={index}
-                src={`${BASE_URL}${imgUrl}`}
+                src={fullImageUrl}
                 alt={`Incidencia ${index + 1}`}
                 width="100"
                 height="100"
-                style={{ objectFit: 'cover', borderRadius: 4, border: '1px solid #ddd' }}
+
+                onClick={() => handleOpenLightbox(fullImageUrl)}
+                style={{ 
+                  objectFit: 'cover', 
+                  borderRadius: 4, 
+                  border: '1px solid #ddd',
+                  cursor: 'pointer' // ✨ Cambia el cursor para indicar que es clicable
+                }}
               />
-            ))}
+            )})}
           </Box>
         </Box>
       </Modal>
+
+      {/*MODAL 2: LIGHTBOX (SOLO IMAGEN GRANDE) */}
+      <Modal
+        open={selectedImageInLightbox !== null}
+        onClose={handleCloseLightbox}
+        aria-labelledby="lightbox-modal"
+      >
+        {/* Al hacer click en cualquier parte del fondo negro, se cierra */}
+        <Box sx={lightboxStyle} onClick={handleCloseLightbox}>
+          {selectedImageInLightbox && (
+            <img
+              src={selectedImageInLightbox}
+              alt="Detalle grande"
+              style={{ 
+                maxWidth: '95vw',  // Ocupa máximo el 95% del ancho de la pantalla
+                maxHeight: '95vh', // Ocupa máximo el 95% del alto
+                objectFit: 'contain', // Asegura que la imagen se vea entera sin recortarse
+                boxShadow: '0px 4px 20px rgba(0,0,0,0.5)',
+                borderRadius: 4
+              }}
+              // Evitamos que el click en la imagen misma cierre el modal
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </Box>
+      </Modal>
+
     </Paper>
   );
 };
