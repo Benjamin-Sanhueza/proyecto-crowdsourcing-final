@@ -1,36 +1,37 @@
 from rapidfuzz import fuzz
 from typing import List, Optional
 
-# CAMBIO: Bajamos el umbral de 80 a 70 para detectar más duplicados
-def find_similar_incident(new_text: str, existing_titles: List[str], threshold: int = 70) -> dict:
+def find_similar_incident(new_text: str, existing_texts: List[str], threshold: int = 60) -> dict:
     """
-    Motor de deduplicación usando RapidFuzz.
+    Motor de deduplicación MEJORADO.
+    Compara el texto nuevo con los existentes usando lógica difusa (Fuzzy).
     """
     max_similarity = 0
-    similar_title = None
+    similar_incident = None
     
-    if not existing_titles:
-        return {
-            "detected": False, 
-            "score": 0, 
-            "similar_to": None
-        }
+    if not existing_texts:
+        return {"detected": False, "score": 0, "similar_to": None}
 
+    # Normalizamos el texto nuevo
     text_lower = new_text.lower()
 
-    for title in existing_titles:
-        # Usamos token_set_ratio que es mejor para palabras desordenadas
-        # Ej: "Fuga de agua" vs "Agua con fuga" lo detecta bien.
-        ratio = fuzz.token_set_ratio(text_lower, title.lower())
+    for item in existing_texts:
+        # item ahora es un string largo: "TITULO DESCRIPCION"
+        # Comparamos el texto completo usando token_set_ratio
+        score = fuzz.token_set_ratio(text_lower, item.lower())
         
-        if ratio > max_similarity:
-            max_similarity = ratio
-            similar_title = title
+        # Imprimimos en los logs para que tú puedas depurar en Render
+        print(f"Comparando: '{new_text[:20]}...' vs '{item[:20]}...' -> Score: {score}")
+
+        if score > max_similarity:
+            max_similarity = score
+            similar_incident = item
             
+    # Si supera el umbral (ahora 60%), es duplicado
     is_duplicate = max_similarity > threshold
 
     return {
         "detected": is_duplicate,
         "score": max_similarity,
-        "similar_to": similar_title if is_duplicate else None
+        "similar_to": similar_incident if is_duplicate else None
     }
