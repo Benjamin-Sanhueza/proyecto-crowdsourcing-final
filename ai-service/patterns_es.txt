@@ -1,6 +1,10 @@
-# Palabras y frases prohibidas
-# Formato: {categoria}expresion_regular
-{insulto}\b(weon|weón|qlo|culiao|culi(a|o)|idiota|imbécil|estúpido)\b
-{amenaza}
-{violencia}\b(arma|puñete|patada|pelea|golpiza)\b
-{spam}\b(https?://|comparte\s+este\s+link|visita\s+mi\s+página)\b
+# --- INSULTOS Y AGRESIVIDAD ---
+{insulto} (est[uú]pid[oa]s?|idiotas?|imb[eé]ciles?|tont[oa]s?|basuras?|mierdas?)
+{insulto} (inutiles?|incompetentes?|payasos?)
+{insulto} (malnacidos?|hijos? de puta)
+
+# --- AMENAZAS ---
+{amenaza} (te voy a mat+ar|morir[áa]s|quemar|golpear|pegar)
+
+# --- SPAM / BASURA ---
+{spam} (viagra|casino|ganaste|dinero gratis)

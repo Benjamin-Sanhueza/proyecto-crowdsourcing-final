@@ -1,35 +1,50 @@
 import re
 import os
-from typing import List, Dict
+from typing import List, Dict, Tuple, Pattern
 
-def _load_patterns() -> List[tuple]:
+def _load_patterns() -> List[Tuple[Pattern, str]]:
     """Carga los patrones de texto y categorías desde patterns_es.txt"""
     patterns = []
-    # Construye la ruta al archivo de patrones de forma segura
     path = os.path.join(os.path.dirname(__file__), "patterns_es.txt")
+
+    if not os.path.exists(path):
+        print("⚠️ Advertencia: No se encontró patterns_es.txt")
+        return []
 
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            # Ignora comentarios y líneas vacías
+            # 1. Ignorar líneas vacías o comentarios
             if not line or line.startswith("#"):
                 continue
             
-            # Busca el formato {categoria} y lo separa de la regex
+            # 2. Ignorar líneas peligrosas (demasiado cortas) que marcarían todo
+            if len(line) < 3: 
+                continue
+
+            # 3. Extraer {categoria} regex
             cat_match = re.match(r"\{(.*?)\}", line)
             if cat_match:
                 cat = cat_match.group(1)
-                patt = line[cat_match.end():].strip()
-                # Compila la regex ignorando mayúsculas/minúsculas
-                compiled = re.compile(patt, re.IGNORECASE) 
-                patterns.append((compiled, cat))
+                patt_str = line[cat_match.end():].strip()
+                
+                try:
+                    # Compilamos la regex
+                    compiled = re.compile(patt_str, re.IGNORECASE) 
+                    patterns.append((compiled, cat))
+                except re.error:
+                    print(f"❌ Error en regex: {patt_str}")
+                    
     return patterns
 
 def analyze_report(text: str) -> Dict:
     """Analiza un texto para detectar contenido basado en reglas."""
+    if not text:
+        return {"flag": False, "reasons": [], "severity": "leve"}
+
     text = text.lower()
     patterns = _load_patterns()
-    reasons = set() #un 'set' para evitar razones duplicadas
+    reasons = set()
 
     for patt, cat in patterns:
         if patt.search(text):
@@ -39,20 +54,15 @@ def analyze_report(text: str) -> Dict:
     if not reasons:
         return {"flag": False, "reasons": [], "severity": "leve"}
 
-    # Variable de entorno para "modo estricto"
-    strict = os.getenv("MOD_STRICT", "false").lower() == "true"
-
-    # Definir severidad basada en las categorías encontradas
-    if "amenaza" in reasons or "violencia" in reasons:
-        sev = "grave"
+    # Determinar severidad
+    severity = "leve"
+    if "amenaza" in reasons:
+        severity = "grave"
     elif "insulto" in reasons:
-        # En modo estricto, un insulto se considera grave
-        sev = "media" if not strict else "grave"
-    else:
-        sev = "leve" # Para otras categorías como 'spam'
+        severity = "media"
 
     return {
         "flag": True,
         "reasons": sorted(list(reasons)),
-        "severity": sev,
+        "severity": severity,
     }
