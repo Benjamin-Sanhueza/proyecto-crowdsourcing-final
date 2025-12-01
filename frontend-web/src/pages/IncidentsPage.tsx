@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   Typography, Paper, CircularProgress, Alert, TableContainer, Table, TableHead,
-  TableRow, TableCell, TableBody, Chip, Modal, Box, Select, MenuItem, IconButton, Tooltip, Grid, Card, CardContent, Divider
-} from '@mui/material';
+  TableRow, TableCell, TableBody, Chip, Modal, Box, Select, MenuItem, IconButton, Tooltip, Grid, Card, CardContent
+} from '@mui/material'; // Se eliminó 'Divider' de aquí
 import DeleteIcon from '@mui/icons-material/Delete';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -42,7 +42,7 @@ const getStatusChipColor = (status: Incident['status']) => {
   }
 };
 
-// --- AQUÍ ESTÁ LA LÓGICA PARA MOSTRAR DOBLE ETIQUETA ---
+// --- LÓGICA PARA MOSTRAR DOBLE ETIQUETA ---
 const renderAIBadge = (incident: Incident) => {
   const badges = [];
 
@@ -61,7 +61,7 @@ const renderAIBadge = (incident: Incident) => {
     );
   }
 
-  // 2. Chequeamos Duplicado (Se agrega a la lista si corresponde)
+  // 2. Chequeamos Duplicado
   if (incident.is_duplicate) {
     badges.push(
       <Tooltip key="duplicate" title="Este reporte es muy similar a uno anterior">
@@ -70,7 +70,7 @@ const renderAIBadge = (incident: Incident) => {
     );
   }
 
-  // 3. Si hay badges (tóxico, duplicado o ambos), los mostramos
+  // 3. Si hay badges, los mostramos
   if (badges.length > 0) {
     return (
       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -218,7 +218,8 @@ const IncidentsPage: React.FC = () => {
               <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
               <RechartsTooltip cursor={{ fill: '#f5f5f5' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
               <Bar dataKey="count" name="Incidentes" radius={[4, 4, 0, 0]} barSize={50}>
-                {chartData.map((entry, index) => (
+                {/* CORRECCIÓN AQUÍ: Usamos _entry para evitar error de variable no usada */}
+                {chartData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill="#1976d2" />
                 ))}
               </Bar>
