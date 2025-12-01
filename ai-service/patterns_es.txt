@@ -1,10 +1,22 @@
-# --- INSULTOS Y AGRESIVIDAD ---
-{insulto} (est[uú]pid[oa]s?|idiotas?|imb[eé]ciles?|tont[oa]s?|basuras?|mierdas?)
-{insulto} (inutiles?|incompetentes?|payasos?)
-{insulto} (malnacidos?|hijos? de puta)
+# --- CHILENISMOS Y MODISMOS (Variantes wn, ql, ctm) ---
+{insulto} (w[eo]n|we[ao]n|hue[vo]n|web[oa]n|aweona[od]s?|saco\s?wea|sacoweas?)
+{insulto} (c[ao]nchetumadre|conchesumadre|conch[eai]tu|c[hnt]m|csm|xuxatumadre)
+{insulto} (culia[od]s?|cu?lia[oa]|ql|kl|qlo|klo|recu?lia[od])
+{insulto} (chucha|xucha|cresta|mierda)
+{insulto} (pico|pene|verga|callampa|tula|pichula|corneta)
+{insulto} (maric[oa]ns?|maraca|perra|puta|prostituta)
+{insulto} (flaite|cum[ao]|rot[oa])
+{insulto} (gil|giles|jiles|longi|logi)
 
-# --- AMENAZAS ---
-{amenaza} (te voy a mat+ar|morir[áa]s|quemar|golpear|pegar)
+# --- INSULTOS GENERALES (Con y sin tildes) ---
+{insulto} (imb[eé]ciles?|est[uú]pid[oa]s?|idiotas?|tarad[oa]s?)
+{insulto} (tont[oa]s?|tontorron|retrasad[oa]s?|mongolic[oa]s?)
+{insulto} (basuras?|in[uú]tiles?|payasos?|ineptos?)
+{insulto} (maldit[oa]s?|desgraciad[oa]s?|infelices?)
+{insulto} (asqueros[oa]s?|cochin[oa]s?)
+{insulto} (lameculos?|chupapico)
 
-# --- SPAM / BASURA ---
-{spam} (viagra|casino|ganaste|dinero gratis)
+# --- AMENAZAS Y VIOLENCIA ---
+{amenaza} (te\s+voy\s+a\s+matar|muerete|morir[áa]s|quemar|degollar)
+{amenaza} (te\s+voy\s+a\s+pegar|golpear|sacar\s+la\s+chucha|sacar\s+la\s+cresta)
+{amenaza} (balazo|puñalada)
