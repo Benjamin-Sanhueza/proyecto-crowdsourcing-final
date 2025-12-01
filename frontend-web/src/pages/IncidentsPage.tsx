@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   Typography, Paper, CircularProgress, Alert, TableContainer, Table, TableHead,
   TableRow, TableCell, TableBody, Chip, Modal, Box, Select, MenuItem, IconButton, Tooltip, Grid, Card, CardContent
-} from '@mui/material'; // Se eliminó 'Divider' de aquí
+} from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -42,26 +42,18 @@ const getStatusChipColor = (status: Incident['status']) => {
   }
 };
 
-// --- LÓGICA PARA MOSTRAR DOBLE ETIQUETA ---
 const renderAIBadge = (incident: Incident) => {
   const badges = [];
 
-  // 1. Chequeamos Toxicidad
   if (incident.ai_is_toxic) {
     const isByRules = incident.ai_toxicity_score === 0;
     badges.push(
       <Tooltip key="toxic" title={isByRules ? "Detectado por Reglas (Lista Negra)" : `Probabilidad IA: ${(incident.ai_toxicity_score * 100).toFixed(1)}%`}>
-        <Chip 
-          label={isByRules ? "PALABRA PROHIBIDA" : "OFENSIVO"} 
-          color="error" 
-          size="small" 
-          sx={{ fontWeight: 'bold' }} 
-        />
+        <Chip label={isByRules ? "PALABRA PROHIBIDA" : "OFENSIVO"} color="error" size="small" sx={{ fontWeight: 'bold' }} />
       </Tooltip>
     );
   }
 
-  // 2. Chequeamos Duplicado
   if (incident.is_duplicate) {
     badges.push(
       <Tooltip key="duplicate" title="Este reporte es muy similar a uno anterior">
@@ -70,16 +62,10 @@ const renderAIBadge = (incident: Incident) => {
     );
   }
 
-  // 3. Si hay badges, los mostramos
   if (badges.length > 0) {
-    return (
-      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {badges}
-      </Box>
-    );
+    return <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>{badges}</Box>;
   }
 
-  // 4. Si está limpio
   if (incident.ai_moderated) {
     return <Chip label="LIMPIO" color="success" size="small" variant="outlined" />;
   }
@@ -87,7 +73,6 @@ const renderAIBadge = (incident: Incident) => {
   return <Chip label="PENDIENTE" size="small" />;
 };
 
-// Componente de Tarjeta KPI
 const StatCard = ({ title, value, icon, color }: any) => (
   <Card sx={{ bgcolor: `${color}10`, height: '100%', boxShadow: 'none', border: `1px solid ${color}30` }}>
     <CardContent>
@@ -121,18 +106,33 @@ const IncidentsPage: React.FC = () => {
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [selectedImageInLightbox, setSelectedImageInLightbox] = useState<string | null>(null);
 
+  // --- AQUÍ ESTÁ EL CAMBIO PARA ACTUALIZACIÓN AUTOMÁTICA ---
   useEffect(() => {
-    const fetchIncidents = async () => {
+    // Función para cargar datos (soporta modo silencioso)
+    const fetchIncidents = async (isSilent = false) => {
       try {
+        if (!isSilent) setLoading(true); // Solo muestra spinner la primera vez
         const response = await api.get<Incident[]>('/incidents');
         setIncidents(response.data);
+        if (!isSilent) setError('');
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Error al cargar las incidencias.');
+        console.error("Error fetching data:", err);
+        if (!isSilent) setError(err.response?.data?.message || 'Error al cargar las incidencias.');
       } finally {
-        setLoading(false);
+        if (!isSilent) setLoading(false);
       }
     };
+
+    // 1. Carga inicial inmediata
     fetchIncidents();
+
+    // 2. Configurar el "Latido" (Polling) cada 5 segundos
+    const intervalId = setInterval(() => {
+      fetchIncidents(true); // True = Carga silenciosa (sin bloquear pantalla)
+    }, 5000);
+
+    // 3. Limpieza al salir de la página
+    return () => clearInterval(intervalId);
   }, []);
 
   // --- CÁLCULOS ---
@@ -188,7 +188,6 @@ const IncidentsPage: React.FC = () => {
         Panel de Control
       </Typography>
 
-      {/* --- SECCIÓN 1: RESUMEN (KPIs) --- */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard title="Total Reportes" value={totalIncidents} icon={<AssessmentIcon fontSize="large" />} color="#1976d2" />
@@ -204,7 +203,6 @@ const IncidentsPage: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* --- SECCIÓN 2: GRÁFICO --- */}
       <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 2, border: '1px solid #e0e0e0' }}>
         <Box display="flex" alignItems="center" mb={2}>
             <BarChartIcon color="primary" sx={{ mr: 1 }} />
@@ -218,7 +216,6 @@ const IncidentsPage: React.FC = () => {
               <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
               <RechartsTooltip cursor={{ fill: '#f5f5f5' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
               <Bar dataKey="count" name="Incidentes" radius={[4, 4, 0, 0]} barSize={50}>
-                {/* CORRECCIÓN AQUÍ: Usamos _entry para evitar error de variable no usada */}
                 {chartData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill="#1976d2" />
                 ))}
@@ -228,7 +225,6 @@ const IncidentsPage: React.FC = () => {
         </Box>
       </Paper>
 
-      {/* --- SECCIÓN 3: TABLA --- */}
       <Paper elevation={0} sx={{ borderRadius: 2, border: '1px solid #e0e0e0', overflow: 'hidden' }}>
         <Box sx={{ p: 2, bgcolor: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
             <Typography variant="h6" fontWeight="bold">Detalle de Incidencias</Typography>
@@ -251,10 +247,7 @@ const IncidentsPage: React.FC = () => {
               {incidents.map((incident) => (
                 <TableRow key={incident.id} hover onClick={() => handleOpenModal(incident)} sx={{ cursor: 'pointer' }}>
                   <TableCell sx={{ fontWeight: 500 }}>{incident.title}</TableCell>
-                  
-                  {/* AQUÍ SE MUESTRAN LAS ETIQUETAS DOBLES */}
                   <TableCell align="center">{renderAIBadge(incident)}</TableCell>
-
                   <TableCell>{incident.user_name}</TableCell>
                   <TableCell>{incident.location}</TableCell>
                   <TableCell>{new Date(incident.created_at).toLocaleDateString()}</TableCell>
@@ -284,7 +277,6 @@ const IncidentsPage: React.FC = () => {
         </TableContainer>
       </Paper>
 
-      {/* MODALS */}
       <Modal open={selectedIncident !== null} onClose={handleCloseModal}>
         <Box sx={modalStyle}>
           <Typography variant="h6" component="h2" gutterBottom>{selectedIncident?.title}</Typography>
