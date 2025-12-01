@@ -1,18 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Typography, Paper, CircularProgress, Alert, TableContainer, Table, TableHead,
-  TableRow, TableCell, TableBody, Chip, Modal, Box, Select, MenuItem, IconButton, Tooltip, Grid, Card, CardContent
+  TableRow, TableCell, TableBody, Chip, Modal, Box, Select, MenuItem, IconButton, Tooltip, Grid, Card, CardContent, Divider
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import AssessmentIcon from '@mui/icons-material/Assessment'; // Ícono para métricas
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import BarChartIcon from '@mui/icons-material/BarChart';
 import api from '../services/api';
 
-// --- CONFIGURACIÓN ---
+// --- IMPORTAMOS LOS GRÁFICOS ---
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell 
+} from 'recharts';
+
 const BASE_URL = 'https://proyecto-crowdsourcing-final.onrender.com';
 
-// 1. INTERFAZ COMPLETA
 interface Incident {
   id: number;
   title: string;
@@ -38,28 +42,65 @@ const getStatusChipColor = (status: Incident['status']) => {
   }
 };
 
-// 2. ETIQUETAS INTELIGENTES (La corrección visual de "0%")
+// --- AQUÍ ESTÁ LA LÓGICA PARA MOSTRAR DOBLE ETIQUETA ---
 const renderAIBadge = (incident: Incident) => {
+  const badges = [];
+
+  // 1. Chequeamos Toxicidad
   if (incident.ai_is_toxic) {
     const isByRules = incident.ai_toxicity_score === 0;
-    return (
-      <Tooltip title={isByRules ? "Detectado por lista de palabras prohibidas (Reglas Estrictas)" : `Probabilidad IA: ${(incident.ai_toxicity_score * 100).toFixed(1)}%`}>
-        <Chip label={isByRules ? "PALABRA PROHIBIDA" : "OFENSIVO"} color="error" size="small" sx={{ fontWeight: 'bold' }} />
+    badges.push(
+      <Tooltip key="toxic" title={isByRules ? "Detectado por Reglas (Lista Negra)" : `Probabilidad IA: ${(incident.ai_toxicity_score * 100).toFixed(1)}%`}>
+        <Chip 
+          label={isByRules ? "PALABRA PROHIBIDA" : "OFENSIVO"} 
+          color="error" 
+          size="small" 
+          sx={{ fontWeight: 'bold' }} 
+        />
       </Tooltip>
     );
   }
+
+  // 2. Chequeamos Duplicado (Se agrega a la lista si corresponde)
   if (incident.is_duplicate) {
-    return (
-      <Tooltip title="Este reporte es muy similar a uno anterior">
+    badges.push(
+      <Tooltip key="duplicate" title="Este reporte es muy similar a uno anterior">
         <Chip label="DUPLICADO" color="warning" size="small" sx={{ fontWeight: 'bold' }} />
       </Tooltip>
     );
   }
+
+  // 3. Si hay badges (tóxico, duplicado o ambos), los mostramos
+  if (badges.length > 0) {
+    return (
+      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {badges}
+      </Box>
+    );
+  }
+
+  // 4. Si está limpio
   if (incident.ai_moderated) {
     return <Chip label="LIMPIO" color="success" size="small" variant="outlined" />;
   }
+
   return <Chip label="PENDIENTE" size="small" />;
 };
+
+// Componente de Tarjeta KPI
+const StatCard = ({ title, value, icon, color }: any) => (
+  <Card sx={{ bgcolor: `${color}10`, height: '100%', boxShadow: 'none', border: `1px solid ${color}30` }}>
+    <CardContent>
+      <Typography color="textSecondary" variant="caption" sx={{ fontWeight: 'bold', textTransform: 'uppercase' }}>{title}</Typography>
+      <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: color, mt: 1 }}>
+        {value}
+      </Typography>
+      <Box sx={{ position: 'absolute', top: 15, right: 15, color: color, opacity: 0.3 }}>
+        {icon}
+      </Box>
+    </CardContent>
+  </Card>
+);
 
 const modalStyle = {
   position: 'absolute' as const, top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -94,14 +135,21 @@ const IncidentsPage: React.FC = () => {
     fetchIncidents();
   }, []);
 
-  // --- CÁLCULO DE MÉTRICAS (KPIs) ---
+  // --- CÁLCULOS ---
   const totalIncidents = incidents.length;
   const pendingIncidents = incidents.filter(i => i.status === 'pending').length;
-  // Contamos cuántos ha filtrado la IA (tóxicos o duplicados)
   const aiFilteredCount = incidents.filter(i => i.ai_is_toxic || i.is_duplicate).length;
   const resolvedCount = incidents.filter(i => i.status === 'resolved').length;
-  // Evitamos división por cero
   const resolutionRate = totalIncidents > 0 ? ((resolvedCount / totalIncidents) * 100).toFixed(0) : 0;
+
+  const chartData = useMemo(() => {
+    const grouped: Record<string, number> = {};
+    incidents.forEach(inc => {
+      const date = new Date(inc.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' });
+      grouped[date] = (grouped[date] || 0) + 1;
+    });
+    return Object.keys(grouped).map(date => ({ date, count: grouped[date] })).reverse().slice(0, 7).reverse();
+  }, [incidents]);
 
   const handleOpenModal = (incident: Incident) => setSelectedIncident(incident);
   const handleCloseModal = () => setSelectedIncident(null);
@@ -114,7 +162,7 @@ const IncidentsPage: React.FC = () => {
       const { data } = await api.put(`/incidents/${id}`, { status });
       setIncidents(prev => prev.map(i => (i.id === id ? { ...i, status: data.status } : i)));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'No se pudo actualizar el estado.');
+      setError(err.response?.data?.message || 'Error al actualizar.');
     } finally {
       setSavingId(null);
     }
@@ -127,7 +175,7 @@ const IncidentsPage: React.FC = () => {
       setIncidents(prev => prev.filter(i => i.id !== id));
       if (selectedIncident?.id === id) setSelectedIncident(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'No se pudo eliminar.');
+      setError(err.response?.data?.message || 'Error al eliminar.');
     }
   };
 
@@ -135,75 +183,59 @@ const IncidentsPage: React.FC = () => {
   if (error) return <Alert severity="error">{error}</Alert>;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: 'bold', color: '#1976d2' }}>
-        Dashboard de Control Universitario
+    <Box sx={{ p: 3, maxWidth: 1200, margin: '0 auto' }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: 'bold', color: '#1976d2', borderBottom: '2px solid #f0f0f0', pb: 2 }}>
+        Panel de Control
       </Typography>
 
-      {/* --- SECCIÓN DE MÉTRICAS (DASHBOARD) --- */}
+      {/* --- SECCIÓN 1: RESUMEN (KPIs) --- */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* KPI 1: Total */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#e3f2fd', height: '100%' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>Total Reportes</Typography>
-              <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
-                {totalIncidents}
-              </Typography>
-              <AssessmentIcon sx={{ position: 'absolute', top: 20, right: 20, color: '#90caf9', fontSize: 40, opacity: 0.5 }} />
-            </CardContent>
-          </Card>
+          <StatCard title="Total Reportes" value={totalIncidents} icon={<AssessmentIcon fontSize="large" />} color="#1976d2" />
         </Grid>
-
-        {/* KPI 2: Pendientes */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#fff3e0', height: '100%' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>Pendientes de Atención</Typography>
-              <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: '#ed6c02' }}>
-                {pendingIncidents}
-              </Typography>
-              <WarningIcon sx={{ position: 'absolute', top: 20, right: 20, color: '#ffb74d', fontSize: 40, opacity: 0.5 }} />
-            </CardContent>
-          </Card>
+          <StatCard title="Pendientes" value={pendingIncidents} icon={<WarningIcon fontSize="large" />} color="#ed6c02" />
         </Grid>
-
-        {/* KPI 3: Filtrados por IA */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#ffebee', height: '100%' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>Detectados por IA</Typography>
-              <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: '#d32f2f' }}>
-                {aiFilteredCount}
-              </Typography>
-              <Typography variant="caption" color="textSecondary">Tóxicos o Duplicados</Typography>
-            </CardContent>
-          </Card>
+          <StatCard title="Filtrados IA" value={aiFilteredCount} icon={<WarningIcon fontSize="large" />} color="#d32f2f" />
         </Grid>
-
-        {/* KPI 4: Tasa Resolución */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#e8f5e9', height: '100%' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>Eficiencia Resolución</Typography>
-              <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
-                {resolutionRate}%
-              </Typography>
-              <CheckCircleIcon sx={{ position: 'absolute', top: 20, right: 20, color: '#a5d6a7', fontSize: 40, opacity: 0.5 }} />
-            </CardContent>
-          </Card>
+          <StatCard title="Resolución" value={`${resolutionRate}%`} icon={<CheckCircleIcon fontSize="large" />} color="#2e7d32" />
         </Grid>
       </Grid>
 
-      {/* --- TABLA DE DATOS --- */}
-      <Paper elevation={3} sx={{ p: 2, borderRadius: 2 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Listado Reciente
-        </Typography>
+      {/* --- SECCIÓN 2: GRÁFICO --- */}
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+        <Box display="flex" alignItems="center" mb={2}>
+            <BarChartIcon color="primary" sx={{ mr: 1 }} />
+            <Typography variant="h6" fontWeight="bold">Tendencia Semanal</Typography>
+        </Box>
+        <Box sx={{ height: 300, width: '100%' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} />
+              <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
+              <RechartsTooltip cursor={{ fill: '#f5f5f5' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+              <Bar dataKey="count" name="Incidentes" radius={[4, 4, 0, 0]} barSize={50}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill="#1976d2" />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Box>
+      </Paper>
+
+      {/* --- SECCIÓN 3: TABLA --- */}
+      <Paper elevation={0} sx={{ borderRadius: 2, border: '1px solid #e0e0e0', overflow: 'hidden' }}>
+        <Box sx={{ p: 2, bgcolor: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
+            <Typography variant="h6" fontWeight="bold">Detalle de Incidencias</Typography>
+        </Box>
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+              <TableRow>
                 <TableCell><strong>Título</strong></TableCell>
                 <TableCell align="center"><strong>Análisis IA</strong></TableCell> 
                 <TableCell><strong>Reportado por</strong></TableCell>
@@ -217,16 +249,16 @@ const IncidentsPage: React.FC = () => {
             <TableBody>
               {incidents.map((incident) => (
                 <TableRow key={incident.id} hover onClick={() => handleOpenModal(incident)} sx={{ cursor: 'pointer' }}>
-                  <TableCell>{incident.title}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{incident.title}</TableCell>
                   
-                  {/* Aquí se usa la función corregida */}
+                  {/* AQUÍ SE MUESTRAN LAS ETIQUETAS DOBLES */}
                   <TableCell align="center">{renderAIBadge(incident)}</TableCell>
-                  
+
                   <TableCell>{incident.user_name}</TableCell>
                   <TableCell>{incident.location}</TableCell>
                   <TableCell>{new Date(incident.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    <Chip label={incident.status} color={getStatusChipColor(incident.status)} size="small" />
+                    <Chip label={incident.status} color={getStatusChipColor(incident.status)} size="small" variant="outlined" />
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Select
@@ -234,14 +266,14 @@ const IncidentsPage: React.FC = () => {
                       value={incident.status}
                       onChange={(e) => handleStatusChange(incident.id, e.target.value as Incident['status'])}
                       disabled={savingId === incident.id}
-                      sx={{ mr: 1, minWidth: 140, height: 35 }}
+                      sx={{ mr: 1, height: 32, fontSize: '0.875rem' }}
                     >
                       <MenuItem value="pending">pending</MenuItem>
                       <MenuItem value="in_progress">in_progress</MenuItem>
                       <MenuItem value="resolved">resolved</MenuItem>
                     </Select>
-                    <IconButton aria-label="delete" color="error" onClick={(e) => { e.stopPropagation(); handleDelete(incident.id); }}>
-                      <DeleteIcon />
+                    <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleDelete(incident.id); }}>
+                      <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -251,7 +283,7 @@ const IncidentsPage: React.FC = () => {
         </TableContainer>
       </Paper>
 
-      {/* MODALS (Detalle y Lightbox) - Mantenidos igual */}
+      {/* MODALS */}
       <Modal open={selectedIncident !== null} onClose={handleCloseModal}>
         <Box sx={modalStyle}>
           <Typography variant="h6" component="h2" gutterBottom>{selectedIncident?.title}</Typography>
