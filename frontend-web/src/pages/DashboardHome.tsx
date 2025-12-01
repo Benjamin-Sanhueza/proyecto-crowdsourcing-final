@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react'; // Quitamos 'React' de aquí
 import { Grid, Paper, Typography, Box, Divider, CircularProgress, Alert } from '@mui/material';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import GroupIcon from '@mui/icons-material/Group';
-import api from '../services/api'; // Asegúrate de importar tu api configurada
+import api from '../services/api';
 
 // --- IMPORTAMOS LOS GRÁFICOS ---
 import { 
@@ -29,7 +29,7 @@ const StatCard = ({ title, value, icon, color, trend }: any) => (
         sx={{ 
           p: 1.5, 
           borderRadius: 3, 
-          bgcolor: `${color}15`, // Fondo transparente del color
+          bgcolor: `${color}15`, 
           color: color,
           display: 'flex',
           alignItems: 'center',
@@ -53,7 +53,7 @@ const StatCard = ({ title, value, icon, color, trend }: any) => (
   </Paper>
 );
 
-const DashboardHome = () => {
+const DashboardHome = () => { // Quitamos ': React.FC' para no necesitar importar React
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -78,7 +78,6 @@ const DashboardHome = () => {
   const totalIncidents = incidents.length;
   const pendingCount = incidents.filter(i => i.status === 'pending').length;
   const resolvedCount = incidents.filter(i => i.status === 'resolved').length;
-  // Simulamos usuarios activos (ya que no tenemos endpoint de usuarios aún)
   const activeUsers = 15; 
 
   // 3. PREPARAR DATOS PARA EL GRÁFICO
@@ -86,15 +85,12 @@ const DashboardHome = () => {
     const grouped: Record<string, number> = {};
     
     incidents.forEach(inc => {
-      // Formato DD/MM
       const date = new Date(inc.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' });
       grouped[date] = (grouped[date] || 0) + 1;
     });
 
-    // Convertir a array, ordenar y tomar los últimos 7 días
     return Object.keys(grouped)
       .map(date => ({ date, count: grouped[date] }))
-      // Ordenar por fecha (truco simple asumiendo formato string ordenable o orden de llegada)
       .reverse() 
       .slice(0, 7)
       .reverse();
@@ -154,7 +150,7 @@ const DashboardHome = () => {
       {/* Sección Secundaria */}
       <Grid container spacing={3}>
         
-        {/* === AQUÍ ESTÁ EL GRÁFICO QUE PEDISTE === */}
+        {/* === GRÁFICO === */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 3, height: '400px', borderRadius: 3, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' }}>
             <Box display="flex" alignItems="center" mb={3}>
@@ -164,7 +160,6 @@ const DashboardHome = () => {
                 <Typography variant="h6" fontWeight="bold">Tendencia de Reportes</Typography>
             </Box>
             
-            {/* Contenedor del Gráfico */}
             <Box sx={{ width: '100%', height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -187,7 +182,8 @@ const DashboardHome = () => {
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         />
                         <Bar dataKey="count" name="Incidentes" radius={[4, 4, 0, 0]} barSize={40}>
-                            {chartData.map((entry, index) => (
+                            {/* AQUÍ ESTABA EL ERROR: Cambiamos 'entry' por '_entry' */}
+                            {chartData.map((_entry, index) => (
                                 <Cell key={`cell-${index}`} fill="#3b82f6" />
                             ))}
                         </Bar>
@@ -197,12 +193,11 @@ const DashboardHome = () => {
           </Paper>
         </Grid>
 
-        {/* Panel Lateral: Actividad Reciente (REAL) */}
+        {/* Panel Lateral: Actividad Reciente */}
         <Grid item xs={12} md={4}>
             <Paper sx={{ p: 3, height: '400px', overflowY: 'auto', borderRadius: 3, boxShadow: '0px 4px 20px rgba(0,0,0,0.05)' }}>
                 <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Actividad Reciente</Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {/* Tomamos los últimos 5 incidentes reales */}
                     {incidents.slice(0, 5).map((inc, i) => (
                         <Box key={inc.id}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
